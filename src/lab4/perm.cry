@@ -1,0 +1,34 @@
+module perm where
+
+remove lst n = drop `{2} [w.0 | w <- z]
+  where
+    z = [(-1,False)]#[ if (q.1 == False /\ ~(za == n)) 
+                       then (za, q.1)
+                       else (zb, True)
+                     | za <- [-1]#lst | zb <- lst#[-1] | q <- z ]
+
+member lst n = z ! 0
+  where
+    z = [False]#[ ss \/ (p == n) | p <- lst | ss <- z ]
+
+perm x y = if (length x) == 0 /\ (length y) == 0 then True else
+           if (length x) == (length y) then (z ! 0).1 else False
+  where
+    z = [ ((remove q.0 p), (member q.0 p) /\ q.1)
+        | q <- [(y,True)]#z | p <- x ]
+
+permReflexive : [10][32] -> [10][32] -> Bit
+property permReflexive x y = ~(x == y) \/ perm x y
+
+permSymmetric : [10][32] -> [10][32] -> Bit
+property permSymmetric x y =
+   if ~(member x (2^^32-1)) /\ ~(member y (2^^32-1)) /\ perm x y
+   then perm y x else True
+
+permTransitive : [6][32] -> [6][32] -> [6][32] -> Bit
+property permTransitive x y z =
+   if ~(member x (2^^32-1)) /\ ~(member y (2^^32-1)) /\ ~(member z (2^^32-1)) /\
+       perm x y /\ perm y z
+   then perm x z else True
+
+// use cvc4 prover

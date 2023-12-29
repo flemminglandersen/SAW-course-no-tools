@@ -1,0 +1,5 @@
+#!/bin/bash
+#sudo killall openvpn
+#sleep 2
+sudo nohup ./run.vpn 
+sleep 2

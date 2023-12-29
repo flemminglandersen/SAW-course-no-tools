@@ -1,0 +1,9 @@
+#!/bin/bash
+export CD=`pwd`
+if [ ! -f jdk-lin/lib/modules ]; then
+  cd jdk-lin/lib
+  echo "n" | unzip -o modules.zip
+  cd $CD
+fi
+cd cdest/src-lig
+java -jar cdx-contest.jar &

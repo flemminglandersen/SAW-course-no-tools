@@ -1,0 +1,108 @@
+import "SHA512.cry";
+
+let alloc_init ty v = do {
+  p <- llvm_alloc ty;
+  llvm_points_to p v;
+  return p;
+};
+
+let pointer_to_fresh n ty = do {
+  x <- llvm_fresh_var n ty;
+  p <- alloc_init ty (llvm_term x);
+  return (x, p);
+};
+
+let points_to_sha512_state_st_common ptr (h, sz, block, n) num = do {
+  llvm_points_to (llvm_field ptr "h") (llvm_term h);
+  llvm_points_to_at_type (llvm_field ptr "Nl") (llvm_int 128) (llvm_term sz);
+
+  if eval_bool {{ `num == 0 }} then do {
+    return ();
+  } else do {
+    llvm_points_to_untyped (llvm_field ptr "p") (llvm_term block);
+  };
+
+  llvm_points_to (llvm_field ptr "num") (llvm_term n);
+  llvm_points_to (llvm_field ptr "md_len") (llvm_term {{ `64 : [32] }});
+};
+
+let points_to_sha512_state_st ptr state num = do {
+ points_to_sha512_state_st_common
+   ptr
+   ({{ state.h }}, {{ state.sz }}, {{ take`{num} state.block }}, {{ state.n }}) num;
+};
+
+let pointer_to_fresh_sha512_state_st n = do {
+  h <- llvm_fresh_var "sha512_ctx.h" (llvm_array 8 (llvm_int 64));
+  block <- if eval_bool {{ `n == 0 }} then do {
+    return {{ [] : [0][8] }};
+  } else do {
+    llvm_fresh_var "sha512_ctx.block" (llvm_array n (llvm_int 8));
+  };
+  sz <- llvm_fresh_var "sha512_ctx.sz" (llvm_int 128);
+  let state = {{ { h = h, block = (block # zero) : [128][8], n = `n : [32], sz = sz } }};
+  ptr <- llvm_alloc (llvm_struct "struct.sha512_state_st");
+  points_to_sha512_state_st_common ptr (h, sz, block, {{ `n : [32]}}) n;
+
+  return (state, ptr);
+};
+
+let Sigma0_setup = do {
+  x <- llvm_fresh_var "x" (llvm_int 64);
+  llvm_execute_func [llvm_term x];
+  llvm_return (llvm_term {{ SIGMA_0 x }});
+};
+
+let Sigma1_setup = do {
+  x <- llvm_fresh_var "x" (llvm_int 64);
+  llvm_execute_func [llvm_term x];
+  llvm_return (llvm_term {{ SIGMA_1 x }});
+};
+
+let sigma0_setup = do {
+  x <- llvm_fresh_var "x" (llvm_int 64);
+  llvm_execute_func [llvm_term x];
+  llvm_return (llvm_term {{ sigma_0 x }});
+};
+
+let sigma1_setup = do {
+  x <- llvm_fresh_var "x" (llvm_int 64);
+  llvm_execute_func [llvm_term x];
+  llvm_return (llvm_term {{ sigma_1 x }});
+};
+
+let sha512_block_data_order_setup = do {
+  (state, state_ptr) <- pointer_to_fresh "state" (llvm_array 8 (llvm_int 64));
+  (data, data_ptr) <- pointer_to_fresh "data" (llvm_array 128 (llvm_int 8));
+
+  llvm_execute_func [state_ptr, data_ptr, llvm_term {{ 1 : [64] }}];
+
+  llvm_points_to state_ptr
+      (llvm_term {{ processBlock_Common state (split (join data)) }});
+};
+
+let SHA512_Update_setup = do {
+  (sha512_ctx, sha_ptr) <- pointer_to_fresh_sha512_state_st 0;
+  (data, data_ptr) <- pointer_to_fresh "data" (llvm_array 127 (llvm_int 8));
+
+  llvm_execute_func [sha_ptr, data_ptr, llvm_term {{ `127 : [64] }}];
+
+  points_to_sha512_state_st sha_ptr {{ SHAUpdate sha512_ctx data }} 127; 
+  llvm_return (llvm_term {{ 1 : [32] }});
+};
+
+let main : TopLevel () = do {
+   m <- llvm_load_module "sha512.bc";
+   Sigma0_ov <- llvm_verify m "Sigma0" [] false Sigma0_setup z3;
+   Sigma1_ov <- llvm_verify m "Sigma1" [] false Sigma1_setup z3;
+   sigma0_ov <- llvm_verify m "sigma0" [] false sigma0_setup z3;
+   sigma1_ov <- llvm_verify m "sigma1" [] false sigma1_setup z3;
+   sha512_bdo_ov <- llvm_verify m "sha512_block_data_order"
+     [Sigma0_ov, Sigma1_ov, sigma0_ov, sigma1_ov] false
+     sha512_block_data_order_setup
+     (w4_unint_z3 ["SIGMA_0", "SIGMA_1", "sigma_0", "sigma_1"]);
+	update_ov <- llvm_verify m "SHA512_Update"
+	         [sha512_bdo_ov] false SHA512_Update_setup
+			   (w4_unint_z3 ["processBlock_Common"]);
+   print "Done!";
+};

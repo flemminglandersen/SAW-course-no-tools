@@ -63,16 +63,22 @@ git submodule update --init
 
 ### Install abc
 
-brew install berkeley-abc
+git clone https://github.com/berkeley-abc/abc.git
+cd abc
+git submodule update --init
+
+- Now follow the installation instructions in the README.md file
 
 ### Install cvc4
 
-brew update
-brew install cvc4
+git clone https://github.com/CVC4/CVC4-archived.git
+cd CVC4-archived
+git submodule update --init
+
+- Now follow the installation instructions in the README.md file
 
 ### Install yices and yices-smt2
 
-sudo add-apt-repository ppa:sri-csl/formal-methods
 brew update
 brew install yices2
 
@@ -86,34 +92,20 @@ brew install z3
 
 ### Install libcanberra-gtk-module
 
-brew install libcanberra-gtk-module
+#brew install libcanberra-gtk-module
 
 ### Install java tools
 
-brew install openjdk-17-jre
-brew install openjdk-17-jdk
+brew install openjdk@17
 
 #### Now make openjdk-17 java programs preferred:
 
 - You may have to find out where apt installed the tools. You can use
-  these commands to find where they are:
-
-    pushd /
-    find . -iname "java-17-openjdk*"
-    popd
-    
-  On my Intel X86, 64-bit machine running Ubuntu 22.04 they were found
-  in:
+  this command
   
-     /usr/lib/jvm/java-17-openjdk-amd64/bin/*
-
-  On a different CPU architecture e.g. ARM or OS this could be different
-
-### Now make a symbolic link to all the java tools in your bin directory:
+     brew info openjdk@17
   
-pushd $HOME/bin
-ln -s /usr/lib/jvm/java-17-openjdk-amd64/bin/* .
-popd
+  to find out how to solve this issue.
 
 - We should now have all tools needed to run SAW-course. If some are
   still missing they can be installed with apt or installed after
